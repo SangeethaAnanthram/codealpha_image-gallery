@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #e8edf0;
+    --ink: #1b2430;
+    --muted: #5d6b7a;
+    --accent: #0f6e6a;
+    --card: #ffffff;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 20px 64px; }
+ 
+  header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+  h1 { font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .sub { color: var(--muted); margin-top: 8px; }
+ 
+  /* Filters */
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+  .filters button {
+    font: inherit; font-weight: 600; cursor: pointer;
+    padding: 8px 16px; border-radius: 999px;
+    border: 2px solid var(--ink); background: transparent; color: var(--ink);
+    transition: background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease);
+  }
+  .filters button:hover { transform: translateY(-2px); }
+  .filters button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+ 
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-auto-rows: 200px;
+    grid-auto-flow: dense;
+    gap: 14px;
+  }
+  .item {
+    position: relative; overflow: hidden; border-radius: 10px;
+    background: var(--card); cursor: pointer; border: 0; padding: 0;
+    opacity: 1; transform: scale(1);
+    transition: opacity .35s var(--ease), transform .35s var(--ease), box-shadow .35s var(--ease);
+  }
+  .item.wide { grid-column: span 2; }
+  .item.tall { grid-row: span 2; }
+  .item.hide { opacity: 0; transform: scale(.92); pointer-events: none; }
+  .item[hidden] { display: none; }
+  .item img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform .6s var(--ease), filter .4s var(--ease);
+  }
+  .item:hover, .item:focus-visible { box-shadow: 0 14px 30px rgba(27, 36, 48, .25); }
+  .item:hover img, .item:focus-visible img { transform: scale(1.08); filter: brightness(.7); }
+  .item .cap {
+    position: absolute; inset: auto 0 0 0; padding: 14px; color: #fff; text-align: left;
+    transform: translateY(100%); transition: transform .35s var(--ease);
+  }
+  .item:hover .cap, .item:focus-visible .cap { transform: translateY(0); }
+  .cap b { display: block; font-size: 1.05rem; }
+  .cap span { font-size: .85rem; opacity: .85; }
+  .item:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+ 
+  /* Lightbox */
+  .lb {
+    position: fixed; inset: 0; z-index: 10;
+    display: grid; place-items: center;
+    background: rgba(12, 18, 26, .92);
+    opacity: 0; visibility: hidden;
+    transition: opacity .3s var(--ease), visibility .3s;
+  }
+  .lb.open { opacity: 1; visibility: visible; }
+  .lb figure { max-width: min(92vw, 1100px); text-align: center; color: #fff; }
+  .lb img {
+    max-width: 100%; max-height: 74vh; border-radius: 8px; display: block; margin: 0 auto;
+    transition: opacity .25s var(--ease), transform .25s var(--ease);
+  }
+  .lb img.swap { opacity: 0; transform: scale(.97); }
+  .lb figcaption { margin-top: 14px; }
+  .lb figcaption b { font-size: 1.15rem; }
+  .lb figcaption span { display: block; color: #aab6c3; font-size: .9rem; margin-top: 4px; }
+  .lb button {
+    position: absolute; font: inherit; color: #fff; cursor: pointer;
+    background: rgba(255, 255, 255, .12); border: 0; border-radius: 50%;
+    width: 48px; height: 48px; font-size: 1.5rem; line-height: 1;
+    transition: background .25s var(--ease), transform .25s var(--ease);
+  }
+  .lb button:hover { background: var(--accent); transform: scale(1.1); }
+  .lb button:focus-visible { outline: 3px solid #fff; }
+  .lb .prev { left: 16px; top: 50%; margin-top: -24px; }
+  .lb .next { right: 16px; top: 50%; margin-top: -24px; }
+  .lb .close { top: 16px; right: 16px; }
+ 
+  @media (max-width: 560px) {
+    .grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; gap: 8px; }
+    .item.wide { grid-column: span 2; }
+    .item .cap { transform: translateY(0); background: linear-gradient(transparent, rgba(0,0,0,.7)); padding: 8px; }
+    .cap span { display: none; }
+    .lb .prev { left: 6px; } .lb .next { right: 6px; }
+    .lb button { width: 40px; height: 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Gallery</h1>
+      <p class="sub" id="count"></p>
+    </div>
+    <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
+  </header>
+  <main class="grid" id="grid"></main>
+</div>
+ 
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Image viewer">
+  <button class="close" aria-label="Close">&times;</button>
+  <button class="prev" aria-label="Previous image">&#8249;</button>
+  <figure>
+    <img id="lbImg" alt="">
+    <figcaption><b id="lbTitle"></b><span id="lbMeta"></span></figcaption>
+  </figure>
+  <button class="next" aria-label="Next image">&#8250;</button>
+</div>
+ 
+<script>
+  // ---- 1. Data: swap these for your own images (src: "images/photo1.jpg") ----
+  const photos = [
+    { seed: "mountain-lake",  title: "Mountain lake",   cat: "Nature" },
+    { seed: "city-night",     title: "City at night",   cat: "City" },
+    { seed: "forest-path",    title: "Forest path",     cat: "Nature" },
+    { seed: "old-street",     title: "Old street",      cat: "City" },
+    { seed: "red-fox",        title: "Red fox",         cat: "Animals" },
+    { seed: "bridge-fog",     title: "Bridge in fog",   cat: "City" },
+    { seed: "waterfall",      title: "Waterfall",       cat: "Nature" },
+    { seed: "sleepy-cat",     title: "Sleepy cat",      cat: "Animals" },
+    { seed: "skyline-dusk",   title: "Skyline at dusk", cat: "City" },
+    { seed: "desert-dunes",   title: "Desert dunes",    cat: "Nature" },
+    { seed: "owl-branch",     title: "Owl on branch",   cat: "Animals" },
+    { seed: "market-lights",  title: "Market lights",   cat: "City" },
+    { seed: "meadow",         title: "Wildflower meadow", cat: "Nature" },
+    { seed: "golden-retriever", title: "Golden retriever", cat: "Animals" },
+    { seed: "harbor",         title: "Harbor morning",  cat: "City" },
+    { seed: "snow-peak",      title: "Snow peak",       cat: "Nature" }
+  ].map((p, i) => ({
+    ...p,
+    thumb: `https://picsum.photos/seed/${p.seed}/700/500`,
+    full:  `https://picsum.photos/seed/${p.seed}/1600/1100`,
+    size:  i % 7 === 0 ? "wide" : i % 5 === 3 ? "tall" : ""
+  }));
+ 
+  const grid = document.getElementById("grid");
+  const filtersEl = document.getElementById("filters");
+  const countEl = document.getElementById("count");
+  const lb = document.getElementById("lb");
+  const lbImg = document.getElementById("lbImg");
+  let visible = photos.map((_, i) => i); // indexes of photos in current filter
+  let current = 0;                       // position inside `visible`
+  let lastFocus = null;
+ 
+  // ---- 2. Build grid ----
+  photos.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.className = "item " + p.size;
+    b.dataset.cat = p.cat;
+    b.setAttribute("aria-label", `Open ${p.title}`);
+    b.innerHTML = `<img src="${p.thumb}" alt="${p.title}" loading="lazy">
+                   <div class="cap"><b>${p.title}</b><span>${p.cat}</span></div>`;
+    b.addEventListener("click", () => openLightbox(visible.indexOf(i)));
+    grid.appendChild(b);
+  });
+ 
+  // ---- 3. Filters ----
+  const cats = ["All", ...new Set(photos.map(p => p.cat))];
+  cats.forEach(c => {
+    const b = document.createElement("button");
+    b.textContent = c;
+    b.setAttribute("aria-pressed", c === "All");
+    b.addEventListener("click", () => applyFilter(c));
+    filtersEl.appendChild(b);
+  });
+ 
+  function applyFilter(cat) {
+    [...filtersEl.children].forEach(b => b.setAttribute("aria-pressed", b.textContent === cat));
+    const items = [...grid.children];
+    items.forEach(el => el.classList.add("hide"));          // fade out
+    setTimeout(() => {
+      visible = [];
+      items.forEach((el, i) => {
+        const show = cat === "All" || el.dataset.cat === cat;
+        el.hidden = !show;
+        if (show) visible.push(i);
+      });
+      requestAnimationFrame(() => items.forEach(el => el.classList.remove("hide"))); // fade in
+      updateCount(cat);
+    }, 250);
+  }
+  function updateCount(cat = "All") {
+    countEl.textContent = `${visible.length} photo${visible.length === 1 ? "" : "s"}` + (cat === "All" ? "" : ` in ${cat}`);
+  }
+  updateCount();
+ 
+  // ---- 4. Lightbox ----
+  function show(pos, animate = true) {
+    current = (pos + visible.length) % visible.length;
+    const p = photos[visible[current]];
+    const apply = () => {
+      lbImg.src = p.full;
+      lbImg.alt = p.title;
+      document.getElementById("lbTitle").textContent = p.title;
+      document.getElementById("lbMeta").textContent = `${p.cat} · ${current + 1} / ${visible.length}`;
+    };
+    if (!animate) { apply(); return; }
+    lbImg.classList.add("swap");
+    setTimeout(() => {
+      apply();
+      lbImg.onload = () => lbImg.classList.remove("swap");
+    }, 200);
+    // preload neighbours
+    [1, -1].forEach(d => { new Image().src = photos[visible[(current + d + visible.length) % visible.length]].full; });
+  }
+  function openLightbox(pos) {
+    lastFocus = document.activeElement;
+    show(pos, false);
+    lb.classList.add("open");
+    document.body.style.overflow = "hidden";
+    lb.querySelector(".close").focus();
+  }
+  function closeLightbox() {
+    lb.classList.remove("open");
+    document.body.style.overflow = "";
+    if (lastFocus) lastFocus.focus();
+  }
+  lb.querySelector(".next").addEventListener("click", () => show(current + 1));
+  lb.querySelector(".prev").addEventListener("click", () => show(current - 1));
+  lb.querySelector(".close").addEventListener("click", closeLightbox);
+  lb.addEventListener("click", e => { if (e.target === lb) closeLightbox(); }); // click backdrop
+ 
+  // Keyboard
+  document.addEventListener("keydown", e => {
+    if (!lb.classList.contains("open")) return;
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "ArrowRight") show(current + 1);
+    if (e.key === "ArrowLeft") show(current - 1);
+  });
+ 
+  // Touch swipe
+  let startX = 0;
+  lb.addEventListener("touchstart", e => { startX = e.touches[0].clientX; }, { passive: true });
+  lb.addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
+  });
+</script>
+</body>
+</html>
